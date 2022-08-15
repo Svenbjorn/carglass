@@ -1,0 +1,28 @@
+.actionButton{
+    background-color: transparent;
+    border: 2px solid #ce392f;
+    color: white;
+    border-radius: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    min-width: 100px;
+    // background-color: #EB5463;
+    padding: 5px;
+    color: #ce392f;
+    // float: right;
+    // margin-right: 10px;
+    transition: 0.3s ease;
+
+    &:hover{
+        color: white;
+        background-color: #ce392f;
+    }
+
+}
+
+.disabled{
+    border-color: black;
+    color: black;
+    opacity: 0.2;
+    pointer-events: none;
+}
