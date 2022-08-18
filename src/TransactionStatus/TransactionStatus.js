@@ -1,5 +1,4 @@
 import styles from "./TransactionStatus.module.scss";
-import spinner from "../assets/spin-svgrepo-com.svg";
 
 export default function TransactionStatus({ message, processing, type }) {
   let typeName = "";

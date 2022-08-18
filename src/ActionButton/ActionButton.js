@@ -1,7 +1,6 @@
-import { useCallback } from "react";
 import styles from "./ActionButton.module.scss";
 
-export default function ({
+export default function ActionButton ({
   className,
   children,
   action = () => void 0,

@@ -1,16 +1,12 @@
-import logo from "./logo.svg";
 import "./App.scss";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ActionButton from "./ActionButton/ActionButton";
 import carglassLogo from "./assets/carglass.svg";
 import TransactionStatus from "./TransactionStatus";
-// import axios from 'axios';
-import axiosObservable from "axios-observable";
-import NetsLogo from "./NetsLogo";
 import axios from "axios";
 
 const postMessage = {
-  recieved: false,
+  receieved: false,
   netsEndpoint: "{nets cloud connection url}",
   paymentSite: "http://localhost:3000",
   trustedOrigin: "http://localhost:3000",
@@ -18,6 +14,7 @@ const postMessage = {
   terminalId: "74212001",
   type: "", // 48 Transaction, 49 Refund, 50 Reversal
   amount: "1234",
+  orderID: "",
 };
 
 const status = Object.freeze({
@@ -28,25 +25,20 @@ const status = Object.freeze({
 });
 
 function App() {
-  // const netsApiUrl = "ws://connectcloud-test.aws.nets.eu/ws/json";
-  const [message, setMessage] = useState("");
-  // const[token, setToken] = useState(undefined);
   const [currentStatus, setCurrentStatus] = useState(status.start);
-  const [wsIsOpen, setWsIsOpen] = useState(false);
   const [webSocket, setWebSocket] = useState(undefined);
   const [transactionStatus, setTransactionStatus] = useState("Logging in...");
-  const [n,setN] = useState(0);
 
   const [postData, setPostData] = useState(postMessage);
 
   const netsLogin = useCallback(() => {
     const {
-      recieved,
+      receieved,
       netsEndpoint,
       login: { user, psw },
     } = postData;
 
-    if (recieved) {
+    if (receieved) {
       // console.log("https://" + netsEndpoint + ":443" + "/v1/login",user)
       axios
         .post("https://" + netsEndpoint + ":443" + "/v1/login", {
@@ -64,7 +56,7 @@ function App() {
             );
         });
     }
-  });
+  },[postData]);
 
   useEffect(() => {
     netsLogin();
@@ -74,7 +66,7 @@ function App() {
     const messageListener = window.addEventListener("message", (e) => {
       const data = e.data;
       if (data && data.amount && data.login && data.terminalId) {
-        setPostData({ ...data, recieved: true });
+        setPostData({ ...data, receieved: true });
       }
     });
 
@@ -83,8 +75,7 @@ function App() {
     };
   }, []);
 
-  const makeTransaction = (terminalId,type,amount)=>{
-    console.log(webSocket);
+  const makeTransaction = (terminalId,type,amount,orderID)=>{
     if(webSocket)
     {
       const json = {
@@ -118,14 +109,39 @@ function App() {
 
   useEffect(() => {
     if (webSocket) {
-      const {terminalId,type,amount} = postData;
+      const {terminalId,type,amount,orderID} = postData;
       webSocket.onerror = (error) => {
         console.log(error);
       };
       webSocket.onopen = (event) => {
         console.log(event);
-        makeTransaction(terminalId,type,amount);
-        setWsIsOpen(true);
+        makeTransaction(terminalId,type,amount,orderID);
+
+        // Terminal status??
+        // if(webSocket)
+        // {
+        //   const json = {
+        //     NetsRequest: {
+        //       MessageHeader: {
+        //         $: {
+        //           // ECRID: "' + g_posID + ' ",
+        //           ECRID: "testEcrVendor_001",
+        //           // ECRID: "Bot-POS1",
+        //           // ECRID: "20220817123200",
+        //           TerminalID: terminalId,
+        //           VersionNumber: "1",
+        //         },
+        //       },
+        //       Dfs13Administration: {
+        //         OperId: "0000",
+        //         AdmCode: "12607",
+        //         OptionalData: "",
+        //       },
+        //     },
+        //   };
+        //   console.log("Sending:", json);
+        //   webSocket.send(JSON.stringify(json));
+        // }
       };
       webSocket.onmessage = async function (m) {
         // console.log(m);
@@ -193,12 +209,11 @@ function App() {
       return () => {
         console.log("Closing...");
         webSocket.close();
-        setWsIsOpen(false);
       };
     }
   }, [webSocket]);
 
-  const cancelTransaction = (webSocket) => {
+  const cancelTransaction = () => {
     if (webSocket) {
       const{terminalId} = postData;
       const json = {
@@ -240,9 +255,8 @@ function App() {
         <div className="buttons-container">
           <ActionButton
             className="cancel-button"
-            webSocket = {webSocket}
             disabled={currentStatus !== status.waiting}
-            action={()=>cancelTransaction(webSocket)}
+            action={()=>cancelTransaction()}
           >
             Cancel
           </ActionButton>
@@ -251,8 +265,8 @@ function App() {
             disabled={currentStatus !== status.error}
             action={() => {
               //RETRYING..
-              const {terminalId,type,amount} = postData;
-              makeTransaction(terminalId,type,amount);
+              const {terminalId,type,amount,orderID} = postData;
+              makeTransaction(terminalId,type,amount,orderID);
               // retryAction();
             }}
           >
