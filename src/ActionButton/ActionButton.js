@@ -6,10 +6,11 @@ export default function ({
   children,
   action = () => void 0,
   disabled,
+  // webSocket,
 }) {
-  const cancelButton = useCallback(() => {
-    action();
-  }, []);
+  // const cancelButton = useCallback((webSocket) => {
+  //   action(webSocket);
+  // }, []);
 
   return (
     <button
@@ -17,7 +18,10 @@ export default function ({
         `action-button ${className} ${disabled ? styles.disabled : ""} ` +
         styles.actionButton
       }
-      onClick={cancelButton}
+      onClick={() => {
+  
+        action();
+      }}
       disabled={disabled}
     >
       {children}

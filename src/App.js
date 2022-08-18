@@ -1,233 +1,231 @@
-import logo from './logo.svg';
-import './App.scss';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import ActionButton from './ActionButton/ActionButton';
+import logo from "./logo.svg";
+import "./App.scss";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import ActionButton from "./ActionButton/ActionButton";
 import carglassLogo from "./assets/carglass.svg";
-import TransactionStatus from './TransactionStatus';
+import TransactionStatus from "./TransactionStatus";
 // import axios from 'axios';
-import axiosObservable from  'axios-observable';
-import NetsLogo from './NetsLogo';
-import axios from 'axios';
+import axiosObservable from "axios-observable";
+import NetsLogo from "./NetsLogo";
+import axios from "axios";
+
+const postMessage = {
+  recieved: false,
+  netsEndpoint: "{nets cloud connection url}",
+  paymentSite: "http://localhost:3000",
+  trustedOrigin: "http://localhost:3000",
+  login: { user: "test_nordia", psw: "5up3r-cloud!" },
+  terminalId: "74212001",
+  type: "", // 48 Transaction, 49 Refund, 50 Reversal
+  amount: "1234",
+};
 
 const status = Object.freeze({
-  waiting: Symbol("waiting"),
-  error:   Symbol("error"),
-  done:    Symbol("done"),
-})
+  start: "start",
+  waiting: "waiting",
+  error: "error",
+  done: "done",
+});
 
 function App() {
-  
-  // const netsApiUrl = "https://connectcloud-test.aws.nets.eu/v1";
-  const netsApiUrl = "ws://connectcloud-test.aws.nets.eu/ws/json";
-  const[message,setMessage] = useState("");
-  const [token, setToken] = useState(undefined);
-  const [currentStatus, setCurrentStatus] = useState(status.error);
-  
-  const terminalId = 74212001;
-  const username = "test_nordia";
-  const password = "5up3r-cloud!";
+  // const netsApiUrl = "ws://connectcloud-test.aws.nets.eu/ws/json";
+  const [message, setMessage] = useState("");
+  // const[token, setToken] = useState(undefined);
+  const [currentStatus, setCurrentStatus] = useState(status.start);
+  const [wsIsOpen, setWsIsOpen] = useState(false);
+  const [webSocket, setWebSocket] = useState(undefined);
+  const [transactionStatus, setTransactionStatus] = useState("Logging in...");
+  const [n,setN] = useState(0);
 
-  const netsLogin = useCallback(()=>{
-      // axios.post(netsApiUrl + "/login", {
-      //   username,
-      //   password,
+  const [postData, setPostData] = useState(postMessage);
 
-      //   // Nav2Day terminal
-      //   // username: "test1_nav2day",
-      //   // password: "$hmLSd3Q1aQ?WL5h",
-      // }).then(response=>{
-      //   console.log(response);
-      //   setToken(response.data.token);
-      // }).catch(error=>{
-      //   console.log(error)
-      // })
-      axiosObservable
-        .post(netsApiUrl + "/login", {
-          username,
-          password,
+  const netsLogin = useCallback(() => {
+    const {
+      recieved,
+      netsEndpoint,
+      login: { user, psw },
+    } = postData;
 
-          // Nav2Day terminal
-          // username: "test1_nav2day",
-          // password: "$hmLSd3Q1aQ?WL5h",
+    if (recieved) {
+      // console.log("https://" + netsEndpoint + ":443" + "/v1/login",user)
+      axios
+        .post("https://" + netsEndpoint + ":443" + "/v1/login", {
+          username:user,
+          password:psw,
         })
-        .subscribe({
-          complete: (response) => {
-            console.log(response);
-          },
-          error: (error) => {
-            console.log(error);
-          },
-          next: (e) => {
-            console.log(e);
-          },
+        .then((response) => {
+          console.log(response.data.token);
+          const token = response?.data?.token;
+          if (token)
+            setWebSocket(
+              new WebSocket(
+                "wss://" + netsEndpoint + "/ws/json/?auth_token=" + token
+              )
+            );
         });
+    }
   });
-  
-  // const netsCancel = useCallback(() => {
-  //     axios.post(
-  //       netsApiUrl + `/terminal/${terminalId}/administration`,
-  //       {
-  //         username,
-  //         password,
 
-  //         // Nav2Day terminal
-  //         // username: "test1_nav2day",
-  //         // password: "$hmLSd3Q1aQ?WL5h",
-  //       },
-  //       {
-  //         headers: {
-  //           Authorization: "Bearer " + token,
-  //           "content-type": "application/json",
-  //         },
-  //       }
-  //     )
-  //     .then((response) => {
-  //       resolve(response.data);
-  //     })
-  //     .catch((error) => {
-  //       reject(error);
-  //     });
-  // })
+  useEffect(() => {
+    netsLogin();
+  }, [postData]);
 
-  const netsProtocols = useCallback(async ()=>{
-    const login = await netsLogin();
+  useEffect(() => {
+    const messageListener = window.addEventListener("message", (e) => {
+      const data = e.data;
+      if (data && data.amount && data.login && data.terminalId) {
+        setPostData({ ...data, recieved: true });
+      }
+    });
 
-    // const{token} = login;
-    if(token)
-    {
-  
-      axiosObservable
-        .post(netsApiUrl + `/terminal/${terminalId}/transaction/`,{
-          "transactionType": "purchase",
-          "amount": 2515,
-          "currency": "USD"
-          // "allowPinBypass": false,
-          // "operatorId": 4321,
-          // "orderId": "10A90015224431"
-        },
-        {
-          headers:{
-            Authorization:"Bearer " + token,
-            'content-type': 'application/json',
-          }})
-        .subscribe({
-          complete: (response) => {
-            console.log(response, "Complete.");
-          },
-          error: (error) => {
-            console.log(error);
-          },
-          next: (v) => {
-            console.log(v);
-          },
-        })
-      
-      // axios
-      //   .post(netsApiUrl + "/terminal/74212001/print/",{
-      //     // Info needed..........
-      //   },
-      //   {
-      //     headers:{
-      //       Authorization:"Bearer " + token,
-      //       'content-type': 'application/json',
-      //     }})
-      //   .then((response) => {
-      //       console.log(response, "Complete.");
-      //     }).catch((error) => {
-      //       console.log(error);
-      //     })
-      
-      // axiosObservable
-      //   .delete(netsApiUrl + "/terminal/74212001/transaction/",{
-      //     "transactionType": "purchase",
-      //     "amount": 2515,
-      //     // "allowPinBypass": false,
-      //     // "operatorId": 4321,
-      //     // "orderId": "10A90015224431"
-      //   },
-      //   {
-      //     headers:{
-      //       Authorization:"Bearer " + token,
-      //       'content-type': 'application/json',
-      //     }})
-      //   .subscribe({
-      //     complete: (response) => {
-      //       console.log(response, "Complete.");
-      //     },
-      //     error: (error) => {
-      //       console.log(error);
-      //     },
-      //     next: (v) => {
-      //       console.log(v);
-      //     },
-      //   })
-
-
-
-
-
-
-  
-      // window.addEventListener("message",(e)=>{
-      //   console.log(e);
-      // });
-  
-      // setTimeout(()=>{
-      //   console.log("aaa");
-      //   let data = {
-      //       success: true
-      //   }
-      //   window.top.postMessage(data, "*");
-      // },3000)
-    }
-
-  },[]);
-  
-  useEffect(()=>{
-    // netsProtocols();
-    const ws = new WebSocket(
-      "wss://" +
-        // username +
-        // ":" +
-        // password +
-        "connectcloud-test.aws.nets.eu/ws/json"
-    );
-        ws.onerror = (error)=>{console.log(error)};
-        ws.onopen = (event) => {
-          console.log(event)
-            ws.send(JSON.stringify(1234));
-        };
-        ws.onmessage = function (event) {
-            const json = JSON.parse(event.data);
-            try {
-                if ((json.event == 'data')) {
-                    // setBids(json.data.bids.slice(0, 5));
-                }
-            } catch (err) {
-                console.log(err);
-            }
-        };
-        //clean up function
-        return () => ws.close();
-    // const ws = new WebSocket(netsApiUrl);
-    ws.onopen = (event) => {
-      console.log("asdad",event);
-      ws.send(JSON.stringify({username,password}));
+    return () => {
+      window.removeEventListener("message", messageListener);
     };
-    ws.onmessage = function (event) {
-      console.log(event);
-    }
-  },[]);
+  }, []);
 
-  const cancelTransaction = useCallback(()=>{
-    window.top.postMessage({success:true,message:"NETS cancel"},"*");
-  },[])
+  const makeTransaction = (terminalId,type,amount)=>{
+    console.log(webSocket);
+    if(webSocket)
+    {
+      const json = {
+        NetsRequest: {
+          MessageHeader: {
+            $: {
+              // ECRID: "' + g_posID + ' ",
+              ECRID: "testEcrVendor_001",
+              // ECRID: "Bot-POS1",
+              // ECRID: "20220817123200",
+              TerminalID: terminalId,
+              VersionNumber: "1",
+            },
+          },
+          Dfs13TransferAmount: {
+            TransactionType: type,
+            OperId: "0000",
+            Amount1: amount,
+            Amount2: "0",
+            Amount3: "0",
+            Type2: "48",
+            Type3: "48",
+            OptionalData: "",
+          },
+        },
+      };
+      console.log("Sending:", json);
+      webSocket.send(JSON.stringify(json));
+    }
+  }
+
+  useEffect(() => {
+    if (webSocket) {
+      const {terminalId,type,amount} = postData;
+      webSocket.onerror = (error) => {
+        console.log(error);
+      };
+      webSocket.onopen = (event) => {
+        console.log(event);
+        makeTransaction(terminalId,type,amount);
+        setWsIsOpen(true);
+      };
+      webSocket.onmessage = async function (m) {
+        // console.log(m);
+        const message = await m.data.text();
+
+        const messageObj = JSON.parse(message);
+        console.log("Return-->", messageObj);
+
+        const netsResponse = messageObj.NetsResponse;
+        const { Dfs13DisplayText, Dfs13PrintText, Dfs13LocalMode, Dfs13TerminalReady } = netsResponse;
+        
+        // Terminal status information
+        if (Dfs13DisplayText !== undefined) {
+          console.log(Dfs13DisplayText._, Dfs13DisplayText.$?.TextID);
+          setTransactionStatus(Dfs13DisplayText._.replaceAll("\r", "\r\n"));
+
+          if(Dfs13DisplayText.$?.TextID === "1011") // Waiting for card..
+          {
+            // Do something, when waiting for card..
+            setCurrentStatus(status.waiting);
+          }
+        }
+
+        // Reciept-like info
+        if(Dfs13PrintText !== undefined)
+        {
+          console.log("Reciept",Dfs13PrintText.Text);
+          window.top.postMessage({printText:Dfs13PrintText.Text},"*");
+        }
+
+        // Final JSON format info
+        if(Dfs13LocalMode !== undefined)
+        {
+          let success = true;
+          if(Dfs13LocalMode.ResponseCode === "00")
+          {
+            //SUCCESS
+            setCurrentStatus(status.done);
+          }
+          else
+          {
+            //FAILED
+            success = false;
+            setCurrentStatus(status.error);
+          }
+          const data = {
+            success,
+            netsData:Dfs13LocalMode,
+          };
+          window.top.postMessage(data,"*");
+        }
+
+        // The Terminal is ready again..
+        if(Dfs13TerminalReady !== undefined)
+        {
+
+        }
+
+        if (Dfs13DisplayText === undefined && Dfs13PrintText === undefined && Dfs13LocalMode === undefined && Dfs13TerminalReady === undefined) {
+          console.log("NEW:", netsResponse);
+        }
+      };
+
+      //clean up function
+      return () => {
+        console.log("Closing...");
+        webSocket.close();
+        setWsIsOpen(false);
+      };
+    }
+  }, [webSocket]);
+
+  const cancelTransaction = (webSocket) => {
+    if (webSocket) {
+      const{terminalId} = postData;
+      const json = {
+        NetsRequest:{
+          MessageHeader:{
+            $:{
+              ECRID: "testEcrVendor_001",
+              TerminalID: terminalId,
+              VersionNumber: "1",
+            }
+          },
+          Dfs13Administration:{
+            OperId:"0000",
+            AdmCode:"12598",
+            OptionalData:"",
+          }
+        }
+      }
+      webSocket.send(JSON.stringify(json));
+    }
+  };
 
   return (
     <div className="App">
       <header>
         <h1 className="header-text">
-          Payment
+          Terminal
           <div className="border-line" />
         </h1>
       </header>
@@ -235,24 +233,34 @@ function App() {
         {/* <NetsLogo /> */}
         <TransactionStatus
           // message={message}
-          message={"Waiting for pin..."}
+          type={postData.type}
+          message={transactionStatus}
           processing={true}
         />
         <div className="buttons-container">
-          <ActionButton className="cancel-button" action={cancelTransaction}>
+          <ActionButton
+            className="cancel-button"
+            webSocket = {webSocket}
+            disabled={currentStatus !== status.waiting}
+            action={()=>cancelTransaction(webSocket)}
+          >
             Cancel
           </ActionButton>
           <ActionButton
             className="retry-button"
-            disabled={true}
+            disabled={currentStatus !== status.error}
             action={() => {
-              console.log("sadasd");
+              //RETRYING..
+              const {terminalId,type,amount} = postData;
+              makeTransaction(terminalId,type,amount);
+              // retryAction();
             }}
           >
             Retry
           </ActionButton>
         </div>
       </section>
+      {/* <button onClick={()=>{console.log(webSocket);}}>Test</button> */}
       <footer>
         <div className="bottom-right">
           <img className="carglass-logo" src={carglassLogo} draggable={false} />
