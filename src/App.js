@@ -46,6 +46,7 @@ function App() {
           password:psw,
         })
         .then((response) => {
+          console.log(response);
           console.log(response.data.token);
           const token = response?.data?.token;
           if (token)
@@ -65,8 +66,11 @@ function App() {
   useEffect(() => {
     const messageListener = window.addEventListener("message", (e) => {
       const data = e.data;
+      console.log(data);
       if (data && data.amount && data.login && data.terminalId) {
         setPostData({ ...data, receieved: true });
+        console.log("Data recieved:", { ...data, receieved: true });
+        setTransactionStatus("Receieved post data");
       }
     });
 
@@ -169,7 +173,8 @@ function App() {
         if(Dfs13PrintText !== undefined)
         {
           console.log("Reciept",Dfs13PrintText.Text);
-          window.top.postMessage({printText:Dfs13PrintText.Text},"*");
+          window.parent.postMessage({printText:Dfs13PrintText.Text},"*");
+          console.log("Posting:", Dfs13PrintText.Text);
         }
 
         // Final JSON format info
@@ -191,7 +196,8 @@ function App() {
             success,
             netsData:Dfs13LocalMode,
           };
-          window.top.postMessage(data,"*");
+          console.log("Posting:", data);
+          window.parent.postMessage(data,"*");
         }
 
         // The Terminal is ready again..
