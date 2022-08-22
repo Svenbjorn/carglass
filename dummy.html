@@ -1,0 +1,50 @@
+<html>
+
+<head></head>
+
+<body>
+    <div id="controlAddIn"></div>
+    <script>
+        let value = {
+            netsEndpoint: "connectcloud-test.aws.nets.eu", // example: https://connectcloud-test.aws.nets.eu
+            // paymentSite: "https://pay.vita.fo/terminal",
+            // trustedOrigin: "https://pay.vita.fo",
+            paymentSite: "http://localhost:3000",
+            trustedOrigin: "http://localhost:3000",
+            login: {
+                user: "test_nordia",
+                psw: "5up3r-cloud!"
+            },
+            terminalId: "74212001",
+            amount:"2020",
+            type:"48", //transaction 48,refund 49,reversal 50
+            orderID:"123",
+        }
+        startPayment(value).then(async (res) => {
+            console.log(res);
+        })
+        function startPayment(value) {
+            // return new Promise(function (resolve) {
+                var frame = document.createElement("iframe");
+                frame.src = value.paymentSite;
+                frame.height = "300px";
+                frame.width = "400px";
+                frame.onload = function () {
+                    frame.contentWindow.postMessage(value, value.trustedOrigin);
+                }
+                var controlAddIn = document.querySelector("#controlAddIn")
+                controlAddIn.appendChild(frame);
+                window.onmessage = function (e) {
+
+                    if (e.data.success || e.data.cancel) {
+                        console.log(e);
+                        controlAddIn.innerHTML = "";
+
+                    }
+                };
+            // });
+        }
+    </script>
+</body>
+
+</html>
