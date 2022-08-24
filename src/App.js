@@ -8,10 +8,10 @@ import axios from "axios";
 const postMessage = {
   receieved: false,
   netsEndpoint: "{nets cloud connection url}",
-  paymentSite: "http://localhost:3000",
-  trustedOrigin: "http://localhost:3000",
-  login: { user: "test_nordia", psw: "5up3r-cloud!" },
-  terminalId: "74212001",
+  paymentSite: "{this payment site}",
+  trustedOrigin: "{this payment site's origin (trust issue)}",
+  login: { user: "username", psw: "password" },
+  terminalId: "12345678",
   type: "", // 48 Transaction, 49 Refund, 50 Reversal
   amount: "1234",
   orderID: "",
@@ -28,6 +28,9 @@ function App() {
   const [currentStatus, setCurrentStatus] = useState(status.start);
   const [webSocket, setWebSocket] = useState(undefined);
   const [transactionStatus, setTransactionStatus] = useState("Logging in...");
+
+  const[receipt,setReceipt] = useState(undefined);
+  const[jsonResult,setJsonResult] = useState(undefined);
 
   const [postData, setPostData] = useState(postMessage);
 
@@ -155,7 +158,13 @@ function App() {
         console.log("Return-->", messageObj);
 
         const netsResponse = messageObj.NetsResponse;
-        const { Dfs13DisplayText, Dfs13PrintText, Dfs13LocalMode, Dfs13TerminalReady } = netsResponse;
+        const {
+          Dfs13DisplayText,
+          Dfs13PrintText,
+          Dfs13LocalMode,
+          Dfs13TldReceived,
+          Dfs13TerminalReady,
+        } = netsResponse;
         
         // Terminal status information
         if (Dfs13DisplayText !== undefined) {
@@ -173,14 +182,13 @@ function App() {
         if(Dfs13PrintText !== undefined)
         {
           console.log("Reciept",Dfs13PrintText.Text);
-          window.parent.postMessage({printText:Dfs13PrintText.Text},"*");
-          console.log("Posting:", Dfs13PrintText.Text);
+          // window.parent.postMessage({printText:Dfs13PrintText.Text},"*");
+          setReceipt(Dfs13PrintText.Text);
         }
 
         // Final JSON format info
         if(Dfs13LocalMode !== undefined)
         {
-          let success = true;
           if(Dfs13LocalMode.ResponseCode === "00")
           {
             //SUCCESS
@@ -189,15 +197,15 @@ function App() {
           else
           {
             //FAILED
-            success = false;
             setCurrentStatus(status.error);
           }
-          const data = {
-            success,
-            netsData:Dfs13LocalMode,
-          };
-          console.log("Posting:", data);
-          window.parent.postMessage(data,"*");
+          setJsonResult(Dfs13LocalMode);
+        }
+
+        // Some unknown data..
+        if(Dfs13TldReceived !== undefined)
+        {
+          console.log("DATA:", Dfs13TldReceived);
         }
 
         // The Terminal is ready again..
@@ -206,7 +214,13 @@ function App() {
 
         }
 
-        if (Dfs13DisplayText === undefined && Dfs13PrintText === undefined && Dfs13LocalMode === undefined && Dfs13TerminalReady === undefined) {
+        if (
+          Dfs13DisplayText === undefined &&
+          Dfs13PrintText === undefined &&
+          Dfs13LocalMode === undefined &&
+          Dfs13TerminalReady === undefined &&
+          Dfs13TldReceived === undefined 
+        ) {
           console.log("NEW:", netsResponse);
         }
       };
@@ -219,8 +233,21 @@ function App() {
     }
   }, [webSocket]);
 
-  const cancelTransaction = () => {
+  useEffect(()=>{
+    if(receipt && jsonResult)
+    {
+      console.log({netsData: jsonResult, receipt:receipt});
+      const data = {netsData: jsonResult, receipt:receipt}
+      window.parent.postMessage(data,"*");
+      setJsonResult(undefined);
+      setReceipt(undefined);
+    }
+  },[receipt,jsonResult]);
+
+  const adminCall = (code,optionalData = "") => {
     if (webSocket) {
+      setJsonResult(undefined);
+      setReceipt(undefined);
       const{terminalId} = postData;
       const json = {
         NetsRequest:{
@@ -233,8 +260,8 @@ function App() {
           },
           Dfs13Administration:{
             OperId:"0000",
-            AdmCode:"12598",
-            OptionalData:"",
+            AdmCode:code,
+            OptionalData:optionalData,
           }
         }
       }
@@ -242,8 +269,8 @@ function App() {
     }
   };
 
-  return (
-    <div className="App">
+  const Transaction = ()=>(
+    <div className="transaction">
       <header>
         <h1 className="header-text">
           Terminal
@@ -262,7 +289,7 @@ function App() {
           <ActionButton
             className="cancel-button"
             disabled={currentStatus !== status.waiting}
-            action={()=>cancelTransaction()}
+            action={() => adminCall("12594")}
           >
             Cancel
           </ActionButton>
@@ -271,8 +298,8 @@ function App() {
             disabled={currentStatus !== status.error}
             action={() => {
               //RETRYING..
-              const {terminalId,type,amount,orderID} = postData;
-              makeTransaction(terminalId,type,amount,orderID);
+              const { terminalId, type, amount, orderID } = postData;
+              makeTransaction(terminalId, type, amount, orderID);
               // retryAction();
             }}
           >
@@ -286,6 +313,42 @@ function App() {
           <img className="carglass-logo" src={carglassLogo} draggable={false} />
         </div>
       </footer>
+    </div>
+  );
+
+  const Administration = ()=>{
+    return <div className="administration">
+      <header>
+        <h1 className="header-text">
+          Administration
+          <div className="border-line" />
+        </h1>
+      </header>
+      <section>
+        Options
+        <div className="options">
+          <ActionButton action={()=>{adminCall("12592")}}>End of day</ActionButton>
+          <ActionButton action={()=>{adminCall("12607")}}>Load dataset</ActionButton>
+          <ActionButton action={()=>{adminCall("12604")}}>Last Reciept</ActionButton>
+          <ActionButton action={()=>{adminCall("12605")}}>Last result</ActionButton>
+          <ActionButton action={()=>{adminCall("12598")}}>X-Report</ActionButton>
+          <ActionButton action={()=>{adminCall("12599")}}>Z-Report</ActionButton>
+          {/* <ActionButton>Last result</ActionButton>
+          <ActionButton>Last result</ActionButton> */}
+        </div>
+      </section>
+      <footer>
+        <div className="bottom-right">
+          <img className="carglass-logo" src={carglassLogo} draggable={false} />
+        </div>
+      </footer>
+    </div>
+  }
+
+  return (
+    <div className="App">
+      {!["","admin"].includes(postData.type) && <Transaction />}
+      {postData.type === "admin" && <Administration />}
     </div>
   );
 }

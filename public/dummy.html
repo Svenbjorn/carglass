@@ -17,12 +17,9 @@
             },
             terminalId: "74212001",
             amount:"2020",
-            type:"48", //transaction 48,refund 49,reversal 50
+            type:"48", //transaction 48,refund 49,reversal 50, admin admin
             orderID:"123",
         }
-        startPayment(value).then(async (res) => {
-            console.log(res);
-        })
         function startPayment(value) {
             // return new Promise(function (resolve) {
                 var frame = document.createElement("iframe");
@@ -36,14 +33,17 @@
                 controlAddIn.appendChild(frame);
                 window.onmessage = function (e) {
 
+                    console.log(e);
                     if (e.data.success || e.data.cancel) {
-                        console.log(e);
-                        controlAddIn.innerHTML = "";
+                        // controlAddIn.innerHTML = "";
 
                     }
                 };
             // });
         }
+        startPayment(value).then(async (res) => {
+            console.log(res);
+        })
     </script>
 </body>
 
