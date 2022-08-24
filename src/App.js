@@ -1,7 +1,7 @@
 import "./App.scss";
 import { useCallback, useEffect, useState } from "react";
 import ActionButton from "./ActionButton/ActionButton";
-import carglassLogo from "./assets/carglass.svg";
+import carglassLogo from "./assets/carglassNO.svg";
 import TransactionStatus from "./TransactionStatus";
 import axios from "axios";
 
@@ -121,34 +121,10 @@ function App() {
         console.log(error);
       };
       webSocket.onopen = (event) => {
-        console.log(event);
-        makeTransaction(terminalId,type,amount,orderID);
-
-        // Terminal status??
-        // if(webSocket)
-        // {
-        //   const json = {
-        //     NetsRequest: {
-        //       MessageHeader: {
-        //         $: {
-        //           // ECRID: "' + g_posID + ' ",
-        //           ECRID: "testEcrVendor_001",
-        //           // ECRID: "Bot-POS1",
-        //           // ECRID: "20220817123200",
-        //           TerminalID: terminalId,
-        //           VersionNumber: "1",
-        //         },
-        //       },
-        //       Dfs13Administration: {
-        //         OperId: "0000",
-        //         AdmCode: "12607",
-        //         OptionalData: "",
-        //       },
-        //     },
-        //   };
-        //   console.log("Sending:", json);
-        //   webSocket.send(JSON.stringify(json));
-        // }
+        if(type !== "admin")
+        {
+          makeTransaction(terminalId,type,amount,orderID);
+        }
       };
       webSocket.onmessage = async function (m) {
         // console.log(m);
@@ -163,6 +139,7 @@ function App() {
           Dfs13PrintText,
           Dfs13LocalMode,
           Dfs13TldReceived,
+          Dfs13LastFinancialResult,
           Dfs13TerminalReady,
         } = netsResponse;
         
@@ -178,10 +155,10 @@ function App() {
           }
         }
 
-        // Reciept-like info
+        // Receipt-like info
         if(Dfs13PrintText !== undefined)
         {
-          console.log("Reciept",Dfs13PrintText.Text);
+          console.log(Dfs13PrintText.Text);
           // window.parent.postMessage({printText:Dfs13PrintText.Text},"*");
           setReceipt(Dfs13PrintText.Text);
         }
@@ -208,6 +185,12 @@ function App() {
           console.log("DATA:", Dfs13TldReceived);
         }
 
+        if(Dfs13LastFinancialResult !== undefined)
+        {
+          console.log("Dfs13LastFinancialResult",Dfs13LastFinancialResult);
+          window.parent.postMessage({netsData:Dfs13LastFinancialResult});
+        }
+
         // The Terminal is ready again..
         if(Dfs13TerminalReady !== undefined)
         {
@@ -219,6 +202,7 @@ function App() {
           Dfs13PrintText === undefined &&
           Dfs13LocalMode === undefined &&
           Dfs13TerminalReady === undefined &&
+          Dfs13LastFinancialResult === undefined &&
           Dfs13TldReceived === undefined 
         ) {
           console.log("NEW:", netsResponse);
@@ -329,7 +313,7 @@ function App() {
         <div className="options">
           <ActionButton action={()=>{adminCall("12592")}}>End of day</ActionButton>
           <ActionButton action={()=>{adminCall("12607")}}>Load dataset</ActionButton>
-          <ActionButton action={()=>{adminCall("12604")}}>Last Reciept</ActionButton>
+          <ActionButton action={()=>{adminCall("12604")}}>Last Receipt</ActionButton>
           <ActionButton action={()=>{adminCall("12605")}}>Last result</ActionButton>
           <ActionButton action={()=>{adminCall("12598")}}>X-Report</ActionButton>
           <ActionButton action={()=>{adminCall("12599")}}>Z-Report</ActionButton>
