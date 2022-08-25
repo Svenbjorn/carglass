@@ -4,6 +4,7 @@ import ActionButton from "./ActionButton/ActionButton";
 import carglassLogo from "./assets/carglassNO.svg";
 import TransactionStatus from "./TransactionStatus";
 import axios from "axios";
+import { useBeforeunload } from 'react-beforeunload';
 
 const postMessage = {
   receieved: false,
@@ -33,6 +34,28 @@ function App() {
   const[jsonResult,setJsonResult] = useState(undefined);
 
   const [postData, setPostData] = useState(postMessage);
+  const [token, setToken] = useState(undefined);
+
+  const [time, setTime] = useState(new Date());
+
+  const checkStatus = (token,{netsEndpoint,terminalId})=>{
+    setTransactionStatus("Calling...");
+    return new Promise((resolve,reject)=>{
+      axios
+        .get(
+          "https://" +
+            netsEndpoint +
+            ":443/v1/terminal/" +
+            terminalId +
+            "?auth_token=" +
+            token
+        )
+        .then((response) => {
+          resolve(response?.data?.terminal?.terminalState);
+        })
+        .catch((error) => reject(error));
+    })
+  }
 
   const netsLogin = useCallback(() => {
     const {
@@ -44,32 +67,58 @@ function App() {
     if (receieved) {
       // console.log("https://" + netsEndpoint + ":443" + "/v1/login",user)
       axios
-        .post("https://" + netsEndpoint + ":443" + "/v1/login", {
+        .post("https://" + netsEndpoint + ":443/v1/login", {
           username:user,
           password:psw,
         })
-        .then((response) => {
-          console.log(response);
-          console.log(response.data.token);
+        .then(async (response) => {
           const token = response?.data?.token;
+          setToken(token);
           if (token)
-            setWebSocket(
-              new WebSocket(
-                "wss://" + netsEndpoint + "/ws/json/?auth_token=" + token
-              )
-            );
+          {
+            const terminalState = await checkStatus(token,postData);
+            if(terminalState === "idle")
+            {
+              setWebSocket(
+                new WebSocket(
+                  "wss://" + netsEndpoint + "/ws/json/?auth_token=" + token
+                )
+              );
+            }
+            else
+            {
+              setTransactionStatus("Terminal state: "+terminalState);
+              const waitInterval = setInterval(async ()=>{
+                const terminalState = await checkStatus(token,postData);
+                if(terminalState === "idle")
+                {
+                  clearInterval(waitInterval);
+                  setWebSocket(
+                    new WebSocket(
+                      "wss://" + netsEndpoint + "/ws/json/?auth_token=" + token
+                    )
+                  );
+                }
+                else
+                {
+                  setTransactionStatus("Terminal state: "+terminalState);
+                }
+              },5000);
+            }
+          }
+        }).catch((error)=>{
+          setTransactionStatus(error?.response?.data?.error ?? "Something went wrong when logging in.");
         });
     }
   },[postData]);
 
   useEffect(() => {
     netsLogin();
-  }, [postData]);
+  }, [postData,netsLogin]);
 
   useEffect(() => {
     const messageListener = window.addEventListener("message", (e) => {
       const data = e.data;
-      console.log(data);
       if (data && data.amount && data.login && data.terminalId) {
         setPostData({ ...data, receieved: true });
         console.log("Data recieved:", { ...data, receieved: true });
@@ -77,14 +126,25 @@ function App() {
       }
     });
 
+    setTime(new Date());
+
     return () => {
       window.removeEventListener("message", messageListener);
     };
+
   }, []);
 
-  const makeTransaction = (terminalId,type,amount,orderID)=>{
+  const makeTransaction = useCallback((terminalId,type,amount,orderID)=>{
     if(webSocket)
     {
+      if(webSocket.readyState === WebSocket.CLOSED || webSocket.readyState === WebSocket.CLOSING)
+      {
+        const{netsEndpoint} = postData;
+        setWebSocket(new WebSocket(
+          "wss://" + netsEndpoint + "/ws/json/?auth_token=" + token
+        ));
+        return;
+      }
       const json = {
         NetsRequest: {
           MessageHeader: {
@@ -112,7 +172,7 @@ function App() {
       console.log("Sending:", json);
       webSocket.send(JSON.stringify(json));
     }
-  }
+  },[postData,token,webSocket])
 
   useEffect(() => {
     if (webSocket) {
@@ -121,6 +181,7 @@ function App() {
         console.log(error);
       };
       webSocket.onopen = (event) => {
+        console.log(event);
         if(type !== "admin")
         {
           makeTransaction(terminalId,type,amount,orderID);
@@ -211,7 +272,7 @@ function App() {
         webSocket.close();
       };
     }
-  }, [webSocket]);
+  }, [webSocket,makeTransaction,postData]);
 
   useEffect(()=>{
     if(receipt && jsonResult)
@@ -221,8 +282,9 @@ function App() {
       window.parent.postMessage(data,"*");
       setJsonResult(undefined);
       setReceipt(undefined);
+      webSocket.close();
     }
-  },[receipt,jsonResult]);
+  },[receipt,jsonResult,webSocket]);
 
   const adminCall = (code,optionalData = "") => {
     if (webSocket) {
@@ -248,6 +310,10 @@ function App() {
       webSocket.send(JSON.stringify(json));
     }
   };
+
+  useBeforeunload(()=>{
+    adminCall("12594");
+  });
 
   const Transaction = ()=>(
     <div className="transaction">
@@ -290,7 +356,7 @@ function App() {
       {/* <button onClick={()=>{console.log(webSocket);}}>Test</button> */}
       <footer>
         <div className="bottom-right">
-          <img className="carglass-logo" src={carglassLogo} draggable={false} />
+          <img className="carglass-logo" src={carglassLogo} draggable={false} alt="Carglass repair, carglass replace" />
         </div>
       </footer>
     </div>
@@ -319,7 +385,7 @@ function App() {
       </section>
       <footer>
         <div className="bottom-right">
-          <img className="carglass-logo" src={carglassLogo} draggable={false} />
+          <img className="carglass-logo" src={carglassLogo} draggable={false} alt="Carglass repair, carglass replace" />
         </div>
       </footer>
     </div>
@@ -329,6 +395,7 @@ function App() {
     <div className="App">
       {!["","admin"].includes(postData.type) && <Transaction />}
       {postData.type === "admin" && <Administration />}
+      abc {time.toLocaleString()}
     </div>
   );
 }
