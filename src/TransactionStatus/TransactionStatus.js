@@ -4,13 +4,13 @@ export default function TransactionStatus({ message, processing, type }) {
   let typeName = "";
   switch (type) {
     case "48":
-      typeName = "payment";
+      typeName = "Payment";
       break;
     case "49":
-      typeName = "refund";
+      typeName = "Refund";
       break;
     case "50":
-      typeName = "reversal";
+      typeName = "Reversal";
       break;
     default:
       break;

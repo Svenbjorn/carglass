@@ -145,7 +145,6 @@ function App() {
         
         // Terminal status information
         if (Dfs13DisplayText !== undefined) {
-          console.log(Dfs13DisplayText._, Dfs13DisplayText.$?.TextID);
           setTransactionStatus(Dfs13DisplayText._.replaceAll("\r", "\r\n"));
 
           if(Dfs13DisplayText.$?.TextID === "1011") // Waiting for card..
@@ -158,8 +157,6 @@ function App() {
         // Receipt-like info
         if(Dfs13PrintText !== undefined)
         {
-          console.log(Dfs13PrintText.Text);
-          // window.parent.postMessage({printText:Dfs13PrintText.Text},"*");
           setReceipt(Dfs13PrintText.Text);
         }
 
@@ -187,8 +184,7 @@ function App() {
 
         if(Dfs13LastFinancialResult !== undefined)
         {
-          console.log("Dfs13LastFinancialResult",Dfs13LastFinancialResult);
-          window.parent.postMessage({netsData:Dfs13LastFinancialResult});
+          window.parent.postMessage({lastFinancialResult:Dfs13LastFinancialResult});
         }
 
         // The Terminal is ready again..
