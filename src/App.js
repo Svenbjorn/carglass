@@ -6,16 +6,34 @@ import TransactionStatus from "./TransactionStatus";
 import axios from "axios";
 import { useBeforeunload } from 'react-beforeunload';
 
+
+// const postMessage = {
+//   receieved: false,
+//   netsEndpoint: "{nets cloud connection url}",
+//   paymentSite: "{this payment site}",
+//   trustedOrigin: "{this payment site's origin (trust issue)}",
+//   login: { user: "username", psw: "password" },
+//   terminalId: "12345678",
+//   type: "", // 48 Transaction, 49 Refund, 50 Reversal
+//   amount: "1234",
+//   orderID: "",
+// };
+
 const postMessage = {
-  receieved: false,
-  netsEndpoint: "{nets cloud connection url}",
-  paymentSite: "{this payment site}",
-  trustedOrigin: "{this payment site's origin (trust issue)}",
-  login: { user: "username", psw: "password" },
-  terminalId: "12345678",
-  type: "", // 48 Transaction, 49 Refund, 50 Reversal
-  amount: "1234",
-  orderID: "",
+  netsEndpoint: "connectcloud-test.aws.nets.eu", // example: https://connectcloud-test.aws.nets.eu
+  // paymentSite: "https://pay.vita.fo/terminal",
+  // trustedOrigin: "https://pay.vita.fo",
+  paymentSite: "http://localhost:3000",
+  trustedOrigin: "http://localhost:3000",
+  login: {
+      user: "test_nordia",
+      psw: "5up3r-cloud!"
+  },
+  terminalId: "74212001",
+  amount: "2602",
+  type: "48", //transaction "48",refund "49",reversal "50", admin "admin"
+  orderID: "1234",
+  // operId:num,
 };
 
 const status = Object.freeze({
@@ -63,22 +81,24 @@ function App() {
       netsEndpoint,
       login: { user, psw },
     } = postData;
-
-    if (receieved) {
-      // console.log("https://" + netsEndpoint + ":443" + "/v1/login",user)
+    
+    if (receieved || true) {
       axios
         .post("https://" + netsEndpoint + ":443/v1/login", {
           username:user,
           password:psw,
         })
         .then(async (response) => {
+          console.log("Logged in.");
           const token = response?.data?.token;
+          console.log(token);
           setToken(token);
           if (token)
           {
             const terminalState = await checkStatus(token,postData);
             if(terminalState === "idle")
             {
+              console.log("Making Socket...")
               setWebSocket(
                 new WebSocket(
                   "wss://" + netsEndpoint + "/ws/json/?auth_token=" + token
@@ -88,6 +108,7 @@ function App() {
             else
             {
               setTransactionStatus("Terminal state: "+terminalState);
+              setCurrentStatus(status.error);
               const waitInterval = setInterval(async ()=>{
                 const terminalState = await checkStatus(token,postData);
                 if(terminalState === "idle")
@@ -107,16 +128,20 @@ function App() {
             }
           }
         }).catch((error)=>{
+          console.log(error);
           setTransactionStatus(error?.response?.data?.error ?? "Something went wrong when logging in.");
         });
     }
   },[postData]);
 
   useEffect(() => {
+    console.log("logging inn...");
     netsLogin();
   }, [postData,netsLogin]);
 
   useEffect(() => {
+    console.log("Hello...");
+    setTransactionStatus("THIS WORKS..");
     const messageListener = window.addEventListener("message", (e) => {
       const data = e.data;
       if (data && data.amount && data.login && data.terminalId) {
@@ -134,7 +159,17 @@ function App() {
 
   }, []);
 
-  const makeTransaction = useCallback((terminalId,type,amount,orderID)=>{
+  const makeTransaction = useCallback(async (terminalId,type,amount,orderID)=>{
+    const terminalState = await checkStatus(token,postData);
+    if(terminalState !== "idle")
+    {
+      setTransactionStatus("Terminal state: "+terminalState);
+      setCurrentStatus(status.error);
+      if(webSocket)
+        webSocket.close();
+      return;
+    }
+
     if(webSocket)
     {
       if(webSocket.readyState === WebSocket.CLOSED || webSocket.readyState === WebSocket.CLOSING)
@@ -174,6 +209,27 @@ function App() {
     }
   },[postData,token,webSocket])
 
+  function readBlob(file) {
+  
+    return new Promise((resolve)=>{
+      // var file = files[0];
+      var start = 0;
+      var stop = file.size - 1;
+      var reader = new FileReader();
+      
+      // If we use onloadend, we need to check the readyState.
+      reader.onloadend = function(evt) {
+          if (evt.target.readyState == FileReader.DONE) { // DONE == 2
+              resolve(evt.target.result);
+          }
+      };
+      
+      var blob = file.slice(start, stop + 1);
+      reader.readAsText(blob);
+    })
+  
+  }
+
   useEffect(() => {
     if (webSocket) {
       const {terminalId,type,amount,orderID} = postData;
@@ -189,7 +245,10 @@ function App() {
       };
       webSocket.onmessage = async function (m) {
         // console.log(m);
-        const message = await m.data.text();
+        console.log(m.data);
+        // const message = await m.data.text();
+        const message = await readBlob(m.data);
+        console.log("Message-->",message);
 
         const messageObj = JSON.parse(message);
         console.log("Return-->", messageObj);
@@ -206,7 +265,7 @@ function App() {
         
         // Terminal status information
         if (Dfs13DisplayText !== undefined) {
-          setTransactionStatus(Dfs13DisplayText._.replaceAll("\r", "\r\n"));
+          setTransactionStatus(Dfs13DisplayText._.replace(/\r/g, "\r\n")); // Replace all..
 
           if(Dfs13DisplayText.$?.TextID === "1011") // Waiting for card..
           {
@@ -346,6 +405,7 @@ function App() {
               //RETRYING..
               const { terminalId, type, amount, orderID } = postData;
               makeTransaction(terminalId, type, amount, orderID);
+              setCurrentStatus(status.waiting);
               // retryAction();
             }}
           >
@@ -396,6 +456,8 @@ function App() {
       {!["","admin"].includes(postData.type) && <Transaction />}
       {postData.type === "admin" && <Administration />}
       abc {time.toLocaleString()}
+      {JSON.stringify(postMessage)}
+      asddddsadsasad
     </div>
   );
 }

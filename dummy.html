@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 
 <head></head>
@@ -5,49 +6,50 @@
 <body>
     <div id="controlAddIn"></div>
     <script>
-        let num = Math.floor(Math.random()*10000);
+        let num = Math.floor(Math.random() * 10000);
         num = num.toString();
         while (num.length < 4) num = "0" + num;
         let value = {
             netsEndpoint: "connectcloud-test.aws.nets.eu", // example: https://connectcloud-test.aws.nets.eu
-            // paymentSite: "https://pay.vita.fo/terminal",
-            // trustedOrigin: "https://pay.vita.fo",
-            paymentSite: "http://localhost:3000",
-            trustedOrigin: "http://localhost:3000",
+            paymentSite: "https://pay.vita.fo/terminal",
+            trustedOrigin: "https://pay.vita.fo",
+            // paymentSite: "http://localhost:3000/terminal",
+            // trustedOrigin: "http://localhost:3000",
             login: {
                 user: "test_nordia",
                 psw: "5up3r-cloud!"
             },
             terminalId: "74212001",
-            amount:"2602",
-            type:"48", //transaction "48",refund "49",reversal "50", admin "admin"
-            orderID:"1234",
+            amount: "2602",
+            type: "48", //transaction "48",refund "49",reversal "50", admin "admin"
+            orderID: "1234",
             // operId:num,
         }
-        function startPayment(value) {
-            // return new Promise(function (resolve) {
-                var frame = document.createElement("iframe");
-                frame.src = value.paymentSite;
-                frame.height = "300px";
-                frame.width = "400px";
-                frame.onload = function () {
-                    frame.contentWindow.postMessage(value, value.trustedOrigin);
-                }
-                var controlAddIn = document.querySelector("#controlAddIn")
-                controlAddIn.appendChild(frame);
-                window.onmessage = function (e) {
-
-                    console.log(e);
-                    if (e.data.success || e.data.cancel) {
-                        // controlAddIn.innerHTML = "";
-
-                    }
-                };
-            // });
+        function onMessage (e) {
+        console.log(e);
+        if (e.data.success || e.data.cancel) {
+            // controlAddIn.innerHTML = "";
         }
-        startPayment(value).then(async (res) => {
-            console.log(res);
-        })
+        };
+        function startPayment(value) {
+            const channel = new MessageChannel();
+
+            var iFrame = document.createElement("iframe");
+            iFrame.src = value.paymentSite;
+            iFrame.height = "300px";
+            iFrame.width = "400px";
+            iFrame.onload = function () {
+                channel.port1.onmessage = onMessage;
+                console.log("loaded");
+                iFrame.contentWindow.postMessage(value, value.trustedOrigin,[channel.port2]);
+                console.log(value);
+            }
+            var controlAddIn = document.querySelector("#controlAddIn")
+            controlAddIn.appendChild(iFrame);
+            // window.onmessage = onMessage;
+            
+        }
+        startPayment(value);
     </script>
 </body>
 
