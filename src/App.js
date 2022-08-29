@@ -228,7 +228,6 @@ function App() {
         }
       };
       webSocket.onmessage = async function (m) {
-        console.log(m.data);
         // var message = await m.data.text();
         var message = await readBlob(m.data);
         var messageObj = JSON.parse(message);
