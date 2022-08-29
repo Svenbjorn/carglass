@@ -19,23 +19,6 @@ var postMessage = {
   orderID: "",
 };
 
-// var postMessage = {
-//   netsEndpoint: "connectcloud-test.aws.nets.eu", // example: https://connectcloud-test.aws.nets.eu
-//   // paymentSite: "https://pay.vita.fo/terminal",
-//   // trustedOrigin: "https://pay.vita.fo",
-//   paymentSite: "http://localhost:3000",
-//   trustedOrigin: "http://localhost:3000",
-//   login: {
-//       user: "test_nordia",
-//       psw: "5up3r-cloud!"
-//   },
-//   terminalId: "74212001",
-//   amount: "2602",
-//   type: "48", //transaction "48",refund "49",reversal "50", admin "admin"
-//   orderID: "1234",
-//   // operId:num,
-// };
-
 var status = Object.freeze({
   start: "start",
   waiting: "waiting",
