@@ -7,36 +7,36 @@ import axios from "axios";
 import { useBeforeunload } from 'react-beforeunload';
 
 
-// const postMessage = {
-//   receieved: false,
-//   netsEndpoint: "{nets cloud connection url}",
-//   paymentSite: "{this payment site}",
-//   trustedOrigin: "{this payment site's origin (trust issue)}",
-//   login: { user: "username", psw: "password" },
-//   terminalId: "12345678",
-//   type: "", // 48 Transaction, 49 Refund, 50 Reversal
-//   amount: "1234",
-//   orderID: "",
-// };
-
-const postMessage = {
-  netsEndpoint: "connectcloud-test.aws.nets.eu", // example: https://connectcloud-test.aws.nets.eu
-  // paymentSite: "https://pay.vita.fo/terminal",
-  // trustedOrigin: "https://pay.vita.fo",
-  paymentSite: "http://localhost:3000",
-  trustedOrigin: "http://localhost:3000",
-  login: {
-      user: "test_nordia",
-      psw: "5up3r-cloud!"
-  },
-  terminalId: "74212001",
-  amount: "2602",
-  type: "48", //transaction "48",refund "49",reversal "50", admin "admin"
-  orderID: "1234",
-  // operId:num,
+var postMessage = {
+  receieved: false,
+  netsEndpoint: "{nets cloud connection url}",
+  paymentSite: "{this payment site}",
+  trustedOrigin: "{this payment site's origin (trust issue)}",
+  login: { user: "username", psw: "password" },
+  terminalId: "12345678",
+  type: "", // "48" Transaction, "49" Refund, "50" Reversal, "admin" admin
+  amount: "1234",
+  orderID: "",
 };
 
-const status = Object.freeze({
+// var postMessage = {
+//   netsEndpoint: "connectcloud-test.aws.nets.eu", // example: https://connectcloud-test.aws.nets.eu
+//   // paymentSite: "https://pay.vita.fo/terminal",
+//   // trustedOrigin: "https://pay.vita.fo",
+//   paymentSite: "http://localhost:3000",
+//   trustedOrigin: "http://localhost:3000",
+//   login: {
+//       user: "test_nordia",
+//       psw: "5up3r-cloud!"
+//   },
+//   terminalId: "74212001",
+//   amount: "2602",
+//   type: "48", //transaction "48",refund "49",reversal "50", admin "admin"
+//   orderID: "1234",
+//   // operId:num,
+// };
+
+var status = Object.freeze({
   start: "start",
   waiting: "waiting",
   error: "error",
@@ -44,19 +44,25 @@ const status = Object.freeze({
 });
 
 function App() {
-  const [currentStatus, setCurrentStatus] = useState(status.start);
-  const [webSocket, setWebSocket] = useState(undefined);
-  const [transactionStatus, setTransactionStatus] = useState("Logging in...");
+  var [currentStatus, setCurrentStatus] = useState(status.start);
+  var [webSocket, setWebSocket] = useState(undefined);
+  var [transactionStatus, setTransactionStatus] = useState("Logging in...");
 
   const[receipt,setReceipt] = useState(undefined);
   const[jsonResult,setJsonResult] = useState(undefined);
 
-  const [postData, setPostData] = useState(postMessage);
-  const [token, setToken] = useState(undefined);
+  var [postData, setPostData] = useState(postMessage);
+  var [token, setToken] = useState(undefined);
 
-  const [time, setTime] = useState(new Date());
+  window.addEventListener("message", (e) => {
+    var data = e.data;
+    if (data && data.login && data.terminalId) {
+      setPostData({ ...data, receieved: true });
+      setTransactionStatus("Receieved post data");
+    }
+  });
 
-  const checkStatus = (token,{netsEndpoint,terminalId})=>{
+  var checkStatus = (token,{netsEndpoint,terminalId})=>{
     setTransactionStatus("Calling...");
     return new Promise((resolve,reject)=>{
       axios
@@ -75,30 +81,27 @@ function App() {
     })
   }
 
-  const netsLogin = useCallback(() => {
-    const {
+  var netsLogin = useCallback(() => {
+    var {
       receieved,
       netsEndpoint,
       login: { user, psw },
     } = postData;
     
-    if (receieved || true) {
+    if (receieved) {
       axios
         .post("https://" + netsEndpoint + ":443/v1/login", {
           username:user,
           password:psw,
         })
         .then(async (response) => {
-          console.log("Logged in.");
-          const token = response?.data?.token;
-          console.log(token);
+          var token = response?.data?.token;
           setToken(token);
           if (token)
           {
-            const terminalState = await checkStatus(token,postData);
+            var terminalState = await checkStatus(token,postData);
             if(terminalState === "idle")
             {
-              console.log("Making Socket...")
               setWebSocket(
                 new WebSocket(
                   "wss://" + netsEndpoint + "/ws/json/?auth_token=" + token
@@ -109,8 +112,8 @@ function App() {
             {
               setTransactionStatus("Terminal state: "+terminalState);
               setCurrentStatus(status.error);
-              const waitInterval = setInterval(async ()=>{
-                const terminalState = await checkStatus(token,postData);
+              var waitInterval = setInterval(async ()=>{
+                var terminalState = await checkStatus(token,postData);
                 if(terminalState === "idle")
                 {
                   clearInterval(waitInterval);
@@ -135,32 +138,32 @@ function App() {
   },[postData]);
 
   useEffect(() => {
-    console.log("logging inn...");
     netsLogin();
   }, [postData,netsLogin]);
 
-  useEffect(() => {
-    console.log("Hello...");
-    setTransactionStatus("THIS WORKS..");
-    const messageListener = window.addEventListener("message", (e) => {
-      const data = e.data;
-      if (data && data.amount && data.login && data.terminalId) {
-        setPostData({ ...data, receieved: true });
-        console.log("Data recieved:", { ...data, receieved: true });
-        setTransactionStatus("Receieved post data");
-      }
-    });
+  // useEffect(() => {
+  //   setTransactionStatus("THIS WORKS..");
+  //   // var messageListener = window.addEventListener("message", (e) => {
+  //   //   var data = e.data;
+  //   //   if (data && data.amount && data.login && data.terminalId) {
+  //   //     setPostData({ ...data, receieved: true });
+  //   //     console.log("Data recieved:", { ...data, receieved: true });
+  //   //     setTransactionStatus("Receieved post data");
+  //   //   }
+  //   // });
 
-    setTime(new Date());
+  //   setTimeout(()=>{
+  //     window.parent.postMessage("Hiiii :D","*");
+  //   },2000);
+  //   return () => {
+  //     window.removeEventListener("message", messageListener);
+  //   };
 
-    return () => {
-      window.removeEventListener("message", messageListener);
-    };
 
-  }, []);
+  // }, []);
 
-  const makeTransaction = useCallback(async (terminalId,type,amount,orderID)=>{
-    const terminalState = await checkStatus(token,postData);
+  var makeTransaction = useCallback(async (terminalId,type,amount,orderID)=>{
+    var terminalState = await checkStatus(token,postData);
     if(terminalState !== "idle")
     {
       setTransactionStatus("Terminal state: "+terminalState);
@@ -180,7 +183,7 @@ function App() {
         ));
         return;
       }
-      const json = {
+      var json = {
         NetsRequest: {
           MessageHeader: {
             $: {
@@ -204,7 +207,6 @@ function App() {
           },
         },
       };
-      console.log("Sending:", json);
       webSocket.send(JSON.stringify(json));
     }
   },[postData,token,webSocket])
@@ -219,7 +221,7 @@ function App() {
       
       // If we use onloadend, we need to check the readyState.
       reader.onloadend = function(evt) {
-          if (evt.target.readyState == FileReader.DONE) { // DONE == 2
+          if (evt.target.readyState === FileReader.DONE) { // DONE == 2
               resolve(evt.target.result);
           }
       };
@@ -232,29 +234,24 @@ function App() {
 
   useEffect(() => {
     if (webSocket) {
-      const {terminalId,type,amount,orderID} = postData;
+      var {terminalId,type,amount,orderID} = postData;
       webSocket.onerror = (error) => {
         console.log(error);
       };
-      webSocket.onopen = (event) => {
-        console.log(event);
+      webSocket.onopen = () => {
         if(type !== "admin")
         {
           makeTransaction(terminalId,type,amount,orderID);
         }
       };
       webSocket.onmessage = async function (m) {
-        // console.log(m);
         console.log(m.data);
-        // const message = await m.data.text();
-        const message = await readBlob(m.data);
-        console.log("Message-->",message);
+        // var message = await m.data.text();
+        var message = await readBlob(m.data);
+        var messageObj = JSON.parse(message);
 
-        const messageObj = JSON.parse(message);
-        console.log("Return-->", messageObj);
-
-        const netsResponse = messageObj.NetsResponse;
-        const {
+        var netsResponse = messageObj.NetsResponse;
+        var {
           Dfs13DisplayText,
           Dfs13PrintText,
           Dfs13LocalMode,
@@ -319,7 +316,7 @@ function App() {
           Dfs13LocalMode === undefined &&
           Dfs13TerminalReady === undefined &&
           Dfs13LastFinancialResult === undefined &&
-          Dfs13TldReceived === undefined 
+          Dfs13TldReceived === undefined // CONSOLING OUT ANY DATA THAT HASN'T BEEN TAKEN INTO ACCOUNT..
         ) {
           console.log("NEW:", netsResponse);
         }
@@ -327,7 +324,6 @@ function App() {
 
       //clean up function
       return () => {
-        console.log("Closing...");
         webSocket.close();
       };
     }
@@ -336,8 +332,7 @@ function App() {
   useEffect(()=>{
     if(receipt && jsonResult)
     {
-      console.log({netsData: jsonResult, receipt:receipt});
-      const data = {netsData: jsonResult, receipt:receipt}
+      var data = {netsData: jsonResult, receipt:receipt}
       window.parent.postMessage(data,"*");
       setJsonResult(undefined);
       setReceipt(undefined);
@@ -345,12 +340,12 @@ function App() {
     }
   },[receipt,jsonResult,webSocket]);
 
-  const adminCall = (code,optionalData = "") => {
+  var adminCall = (code,optionalData = "") => {
     if (webSocket) {
       setJsonResult(undefined);
       setReceipt(undefined);
       const{terminalId} = postData;
-      const json = {
+      var json = {
         NetsRequest:{
           MessageHeader:{
             $:{
@@ -374,7 +369,7 @@ function App() {
     adminCall("12594");
   });
 
-  const Transaction = ()=>(
+  var Transaction = ()=>(
     <div className="transaction">
       <header>
         <h1 className="header-text">
@@ -403,7 +398,7 @@ function App() {
             disabled={currentStatus !== status.error}
             action={() => {
               //RETRYING..
-              const { terminalId, type, amount, orderID } = postData;
+              var { terminalId, type, amount, orderID } = postData;
               makeTransaction(terminalId, type, amount, orderID);
               setCurrentStatus(status.waiting);
               // retryAction();
@@ -413,7 +408,6 @@ function App() {
           </ActionButton>
         </div>
       </section>
-      {/* <button onClick={()=>{console.log(webSocket);}}>Test</button> */}
       <footer>
         <div className="bottom-right">
           <img className="carglass-logo" src={carglassLogo} draggable={false} alt="Carglass repair, carglass replace" />
@@ -422,7 +416,7 @@ function App() {
     </div>
   );
 
-  const Administration = ()=>{
+  var Administration = ()=>{
     return <div className="administration">
       <header>
         <h1 className="header-text">
@@ -453,11 +447,7 @@ function App() {
 
   return (
     <div className="App">
-      {!["","admin"].includes(postData.type) && <Transaction />}
-      {postData.type === "admin" && <Administration />}
-      abc {time.toLocaleString()}
-      {JSON.stringify(postMessage)}
-      asddddsadsasad
+      {postData.type === "admin" ? <Administration /> : <Transaction/> }
     </div>
   );
 }

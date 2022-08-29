@@ -1,7 +1,7 @@
 import styles from "./TransactionStatus.module.scss";
 
 export default function TransactionStatus({ message, processing, type }) {
-  let typeName = "";
+  var typeName = "";
   switch (type) {
     case "48":
       typeName = "Payment";

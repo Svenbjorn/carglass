@@ -7,7 +7,7 @@ export default function ActionButton ({
   disabled,
   // webSocket,
 }) {
-  // const cancelButton = useCallback((webSocket) => {
+  // var cancelButton = useCallback((webSocket) => {
   //   action(webSocket);
   // }, []);
 
